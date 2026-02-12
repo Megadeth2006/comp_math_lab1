@@ -115,10 +115,12 @@ def gauss_seidel(
     eps: float,
     max_iter: int = 10000,
     ):
+    
     n = len(a)
     x = [0.0] * n
     prev = [0.0] * n
     errors = [0.0] * n
+
 
     for k in range(1, max_iter + 1):
         for i in range(n):
