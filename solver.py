@@ -9,6 +9,7 @@ def parse_float(token: str):
     return float(token)
 
 
+
 def norm_inf(a: List[List[float]]):
     return max(sum(abs(x) for x in row) for row in a)
 
@@ -121,11 +122,13 @@ def gauss_seidel(
 
     for k in range(1, max_iter + 1):
         for i in range(n):
+            
             if a[i][i] == 0.0:
                 raise ZeroDivisionError(
-                    f"Нулевой диагональный элемент в строке {i + 1}."
-                )
+                    f"Нулевой диагональный элемент в строке {i + 1}.")
+                
             s1 = sum(a[i][j] * x[j] for j in range(i))
+            
             s2 = sum(a[i][j] * prev[j] for j in range(i + 1, n))
             x[i] = (b[i] - s1 - s2) / a[i][i]
 

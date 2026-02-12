@@ -76,22 +76,27 @@ def read_matrix_from_file(path: str):
     tokens = [t for t in raw.replace(",", ".").split()]
     if not tokens:
         raise ValueError("Файл пустой.")
+    
     try:
         n = int(float(tokens[0]))
     except ValueError as exc:
+        
         raise ValueError("Первое значение в файле должно быть n.") from exc
     if n <= 0 or n > 20:
         raise ValueError("n должно быть в диапазоне 1..20.")
 
     expected = 1 + n * n + n + 1
     if len(tokens) != expected:
+        
         raise ValueError(
             f"Ожидалось {expected} чисел (n + матрица + b + eps), получено {len(tokens)}."
         )
 
     nums = [parse_float(t) for t in tokens[1:]]
     a = []
+    
     idx = 0
+    
     for _ in range(n):
         row = nums[idx : idx + n]
         a.append(row)
@@ -204,7 +209,7 @@ def main():
             print(f"x{i} = {val}")
 
         print(f"Количество итераций: {iters}")
-        print("Вектор невязки:")
+        print("Вектор погрешностей:")
         for i, val in enumerate(errors, 1):
             print(f"|x{i}^k - x{i}^(k-1)| = {val}")
     except Exception as exc:
