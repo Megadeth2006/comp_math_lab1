@@ -1,8 +1,9 @@
-﻿import sys
+﻿import math
+import sys
 from typing import List
 
 from solver import (
-    apply_inverse_permutation,
+    ensure_nonzero_diagonal,
     gauss_seidel,
     generate_random_system,
     is_diag_dominant,
@@ -10,6 +11,28 @@ from solver import (
     norm_inf,
     parse_float,
 )
+
+
+def format_power10(value: float, precision: int = 6):
+    if value == 0.0:
+        return "0"
+
+    exponent = int(math.floor(math.log10(abs(value))))
+    if -2 <= exponent <= 2:
+        return f"{value:.{precision}f}".rstrip("0").rstrip(".")
+
+    mantissa = value / (10 ** exponent)
+    mantissa = round(mantissa, precision)
+    if abs(mantissa) >= 10:
+        mantissa /= 10
+        exponent += 1
+
+    mantissa_str = f"{mantissa:.{precision}f}".rstrip("0").rstrip(".")
+    if mantissa_str == "1":
+        return f"10^{exponent}"
+    if mantissa_str == "-1":
+        return f"-10^{exponent}"
+    return f"{mantissa_str}*10^{exponent}"
 
 
 def read_numbers(count: int):
@@ -49,21 +72,9 @@ def read_matrix_from_keyboard():
         a.append(read_numbers(n))
 
     zeros_b = [0.0] * n
-    a2, _, col_perm, row_perm = make_diag_dominant(a, zeros_b)
-    if col_perm is None and row_perm is None and not is_diag_dominant(a2):
-        print(
-            "Невозможно добиться диагонального преобладания "
-            "перестановкой столбцов/строк."
-        )
-    else:
-        if row_perm is not None:
-            print("Диагональное преобладание достигнуто перестановкой строк.")
-        if col_perm is not None:
-            print("Диагональное преобладание достигнуто перестановкой столбцов.")
-
     print(f"Введите вектор b из {n} чисел:")
     b = read_numbers(n)
-    return a, b, True
+    return a, b
 
 
 def read_matrix_from_file(path: str):
@@ -117,12 +128,12 @@ def select_input():
     choice = input("Ваш выбор: ").strip()
 
     if choice == "1":
-        a, b, reported = read_matrix_from_keyboard()
-        return a, b, None, reported
+        a, b = read_matrix_from_keyboard()
+        return a, b, None
     if choice == "2":
         path = input("Введите путь к файлу: ").strip()
         a, b, eps = read_matrix_from_file(path)
-        return a, b, eps, False
+        return a, b, eps
     
     if choice == "3":
         while True:
@@ -152,10 +163,10 @@ def select_input():
         a, b = generate_random_system(n, low=low, high=high)
         print("Сгенерированная матрица A:")
         for row in a:
-            print(" ".join(str(x) for x in row))
+            print(" ".join(format_power10(x) for x in row))
         print("Сгенерированный вектор b:")
-        print(" ".join(str(x) for x in b))
-        return a, b, None, False
+        print(" ".join(format_power10(x) for x in b))
+        return a, b, None
 
     print("ошибка: неизвестный вариант")
     return select_input()
@@ -175,43 +186,55 @@ def read_eps():
 
 def main():
     try:
-        a, b, eps, reported = select_input()
+        a, b, eps = select_input()
 
         a2, b2, col_perm, row_perm = make_diag_dominant(a, b)
         if col_perm is None and row_perm is None and not is_diag_dominant(a2):
-            if not reported:
-                print(
-                    "Невозможно добиться диагонального преобладания "
-                    "перестановкой столбцов/строк."
-                )
-            return
-        
-        if not reported:
-            if row_perm is not None:
-                print("Диагональное преобладание достигнуто перестановкой строк.")
-            if col_perm is not None:
-                print("Диагональное преобладание достигнуто перестановкой столбцов.")
+            print(
+                "Невозможно добиться диагонального преобладания "
+                "перестановкой столбцов/строк."
+            )
+            sys.exit(0)
+
+        if row_perm is not None:
+            print("Диагональное преобладание достигнуто перестановкой строк.")
+        if col_perm is not None:
+            print("Диагональное преобладание достигнуто перестановкой столбцов.")
+
+        nz_result = ensure_nonzero_diagonal(a2, b2)
+        if nz_result is None:
+            print("Нулевой диагональный элемент, перестановка невозможна.")
+            sys.exit(0)
+        a3, b3, row_perm_nz, col_perm_nz = nz_result
+
+        if row_perm is None:
+            row_perm = row_perm_nz
+        elif row_perm_nz is not None:
+            row_perm = [row_perm[i] for i in row_perm_nz]
+
+        if col_perm is None:
+            col_perm = col_perm_nz
+        elif col_perm_nz is not None:
+            col_perm = [col_perm[i] for i in col_perm_nz]
 
         if eps is None:
             eps = read_eps()
 
-        norm = norm_inf(a)
-        print(f"Норма матрицы (inf): {norm}")
+        norm = norm_inf(a3)
+        print(f"Норма матрицы (inf): {format_power10(norm)}")
 
-        x_perm, iters, errors = gauss_seidel(a2, b2, eps)
-        if col_perm is not None:
-            x = apply_inverse_permutation(x_perm, col_perm)
-        else:
-            x = x_perm
+        x_perm, iters, errors = gauss_seidel(a3, b3, eps)
+        
+        x = x_perm
 
         print("Вектор неизвестных:")
         for i, val in enumerate(x, 1):
-            print(f"x{i} = {val}")
+            print(f"x{i} = {format_power10(val)}")
 
         print(f"Количество итераций: {iters}")
         print("Вектор погрешностей:")
         for i, val in enumerate(errors, 1):
-            print(f"|x{i}^k - x{i}^(k-1)| = {val}")
+            print(f"|x{i}^k - x{i}^(k-1)| = {format_power10(val)}")
     except Exception as exc:
         print(f"ошибка: {exc}")
         sys.exit(1)
@@ -219,3 +242,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

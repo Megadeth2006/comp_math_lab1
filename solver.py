@@ -73,20 +73,6 @@ def _find_row_perm_for_dominance(
     return row_perm
 
 
-def _find_col_perm_for_dominance(
-    a: List[List[float]],
-):
-    match_to_col = _find_dominance_matching(a)
-    if match_to_col is None:
-        return None
-    n = len(a)
-    perm = [-1] * n
-    for col, row in enumerate(match_to_col):
-        perm[row] = col
-    if any(p == -1 for p in perm):
-        return None
-    return perm
-
 
 def make_diag_dominant(
     a: List[List[float]],
@@ -101,12 +87,7 @@ def make_diag_dominant(
         b2 = [b[i] for i in row_perm]
         return a2, b2, None, row_perm
 
-    col_perm = _find_col_perm_for_dominance(a)
-    if col_perm is None:
-        return a, b, None, None
-    n = len(a)
-    a2 = [[a[i][col_perm[j]] for j in range(n)] for i in range(n)]
-    return a2, b[:], col_perm, None
+    return a, b, None, None
 
 
 def gauss_seidel(
@@ -119,7 +100,7 @@ def gauss_seidel(
     n = len(a)
     x = [0.0] * n
     prev = [0.0] * n
-    errors = [0.0] * n
+    errors = [1.0] * n 
 
 
     for k in range(1, max_iter + 1):
@@ -166,9 +147,44 @@ def generate_random_system(
     return a, b
 
 
-def apply_inverse_permutation(x_perm: List[float], perm: List[int]) -> List[float]:
-    n = len(x_perm)
-    x = [0.0] * n
-    for new_pos, old_col in enumerate(perm):
-        x[old_col] = x_perm[new_pos]
-    return x
+
+def ensure_nonzero_diagonal(
+    a: List[List[float]],
+    b: List[float],
+):
+    n = len(a)
+    row_perm = list(range(n))
+    col_perm = list(range(n))
+    a2 = [row[:] for row in a]
+    b2 = b[:]
+
+    for i in range(n):
+        if a2[i][i] != 0.0:
+            continue
+
+        swap_row = None
+        for r in range(i + 1, n):
+            if a2[r][i] != 0.0:
+                swap_row = r
+                break
+        if swap_row is not None:
+            a2[i], a2[swap_row] = a2[swap_row], a2[i]
+            b2[i], b2[swap_row] = b2[swap_row], b2[i]
+            row_perm[i], row_perm[swap_row] = row_perm[swap_row], row_perm[i]
+            continue
+
+        swap_col = None
+        for c in range(i + 1, n):
+            if a2[i][c] != 0.0:
+                swap_col = c
+                break
+        if swap_col is not None:
+            for r in range(n):
+                a2[r][i], a2[r][swap_col] = a2[r][swap_col], a2[r][i]
+            col_perm[i], col_perm[swap_col] = col_perm[swap_col], col_perm[i]
+            continue
+
+        return None
+
+    return a2, b2, row_perm, col_perm
+
